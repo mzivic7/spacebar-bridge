@@ -27,8 +27,8 @@ A bot that serves as message bridge between Discord and Spacebar servers. But ca
     4. Add bridge channel IDs to `config.json`
 6. run main script: `uv run main.py`
 7. Check `spacebar_bridge.log` for any errors.
-8. `Ctrl+C` to stop bridge
-
+8. `Ctrl+C` to stop bridge.
+9. To set "debug" log level, run `export LOG_LEVEL=DEBUG ` before starting bridge.
 
 ## TODO
 - Edit message

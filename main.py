@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import signal
 import sys
 import threading
@@ -9,7 +10,7 @@ from bridge import discord, gateway
 
 logger = logging
 logging.basicConfig(
-    level="INFO",
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
     filename="spacebar_bridge.log",
     encoding="utf-8",
     filemode="w",
