@@ -1,0 +1,22 @@
+{
+  "discord": {
+    "host": "discord.com",
+    "cdn_host": "cdn.discordapp.com",
+    "token": "YOUR_DISCORD_BOT_TOKEN_HERE"
+  },
+  "spacebar": {
+    "host": "old.server.spacebar.chat",
+    "cdn_host": "cdn.old.server.spacebar.chat",
+    "token": "YOUR_SPACEBAR_BOT_TOKEN_HERE"
+  },
+  "custom_status": null,
+  "custom_status_emoji": null,
+  "discord_guild_id": "DISCORD_GUILD_ID",
+  "spacebar_guild_id": "SPACEBAR_GUILD_ID",
+  "bridges": [
+    {
+      "discord_channel_id": "DISCORD_CHANNEL_ID",
+      "spacebar_channel_id": "SPACEBAR_CHANNEL_ID"
+    }
+  ]
+}
