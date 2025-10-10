@@ -11,6 +11,11 @@
   },
   "custom_status": null,
   "custom_status_emoji": null,
+  "format": {
+    "format_interaction": "╭──⤙ %username used [%command]",
+    "format_one_reaction": "╰──⤙ %reactions",
+    "reactions_separator": "; "
+  },
   "discord_guild_id": "DISCORD_GUILD_ID",
   "spacebar_guild_id": "SPACEBAR_GUILD_ID",
   "bridges": [

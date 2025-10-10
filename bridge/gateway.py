@@ -233,7 +233,7 @@ class Gateway():
                     self.my_id = data["user"]["id"]
                     self.ready = True
 
-                elif optext == "MESSAGE_CREATE" and "content" in response["d"]:
+                elif optext == "MESSAGE_CREATE":
                     message = response["d"]
                     message_done = prepare_message(message)
                     message_done.update({

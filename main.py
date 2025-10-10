@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 
-from bridge import discord, gateway
+from bridge import discord, formatter, gateway
 
 logger = logging
 logging.basicConfig(
@@ -55,6 +55,9 @@ class Bridge:
         self.cdn_b = config["spacebar"]["cdn_host"]
         token_b = config["spacebar"]["token"]
         bridges = config["bridges"]
+        self.message_config = config["format"]
+        self.channels = []   # should be loaded from gateway when guild_create event is parsed
+        self.roles = []   # this too
 
         custom_status = config["custom_status"]
         custom_status_emoji = config["custom_status_emoji"]
@@ -129,14 +132,19 @@ class Bridge:
                             source_id = data["id"]
                             author_name = get_author_name(data)
                             author_pfp = get_author_pfp(data, self.cdn_a)
-                            content = data["content"]
+                            message_text = formatter.build_message(
+                                data,
+                                self.message_config,
+                                self.roles,
+                                self.channels,
+                            )
                             self.message_send_b_noembed(   # spacebar bug with embeds
                                 target_channel,
                                 author_name,
                                 author_pfp,
-                                content,
+                                message_text,
                             )
-                            logger.debug(f"CREATE: {source_channel} > {target_channel} = [{author_name}] - ({source_id}) - {content}")
+                            logger.debug(f"CREATE: {source_channel} > {target_channel} = [{author_name}] - ({source_id}) - {message_text}")
                         elif op == "MESSAGE_UPDATE":
                             pass
                         elif op == "MESSAGE_DELETE":
@@ -175,14 +183,19 @@ class Bridge:
                             source_id = data["id"]
                             author_name = get_author_name(data)
                             author_pfp = get_author_pfp(data, self.cdn_b)
-                            content = data["content"]
+                            message_text = formatter.build_message(
+                                data,
+                                self.message_config,
+                                self.roles,
+                                self.channels,
+                            )
                             self.message_send_a(
                                 target_channel,
                                 author_name,
                                 author_pfp,
-                                content,
+                                message_text,
                             )
-                            logger.debug(f"CREATE: {source_channel} > {target_channel} = [{author_name}] - ({source_id}) - {content}")
+                            logger.debug(f"CREATE: {source_channel} > {target_channel} = [{author_name}] - ({source_id}) - {message_text}")
                         elif op == "MESSAGE_UPDATE":
                             pass
                         elif op == "MESSAGE_DELETE":

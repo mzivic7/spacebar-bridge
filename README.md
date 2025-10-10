@@ -4,6 +4,7 @@ A bot that serves as message bridge between Discord and Spacebar servers. But ca
 
 ## Features
 - 2-way message forwardingr
+- Forward full message content: atachments, embeds, stickers, emojis, mentions, polls interactions (non-interactive)
 - Custom bot status (Discord only)
 
 
@@ -28,7 +29,7 @@ A bot that serves as message bridge between Discord and Spacebar servers. But ca
 6. run main script: `uv run main.py`
 7. Check `spacebar_bridge.log` for any errors.
 8. `Ctrl+C` to stop bridge.
-9. To set "debug" log level, run `export LOG_LEVEL=DEBUG ` before starting bridge.
+9. To set "debug" log level, run `export LOG_LEVEL=DEBUG ` before starting the bridge.
 
 ## TODO
 - Edit message
