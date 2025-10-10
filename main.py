@@ -138,7 +138,7 @@ class Bridge:
                                 self.roles,
                                 self.channels,
                             )
-                            self.message_send_b_noembed(   # spacebar bug with embeds
+                            self.message_send_b(
                                 target_channel,
                                 author_name,
                                 author_pfp,
@@ -222,6 +222,7 @@ class Bridge:
         if not message_text:
             message_text = "*Unknown message content*"
         embeds = [{
+            "type": "rich",
             "author": {
                 "name": author_name,
             },
@@ -245,6 +246,7 @@ class Bridge:
         if not message_text:
             message_text = "*Unknown message content*"
         embeds = [{
+            "type": "rich",
             "author": {
                 "name": author_name,
             },
@@ -260,19 +262,6 @@ class Bridge:
             reply_guild_id=None,
             reply_ping=True,
             embeds=embeds,
-        )
-
-
-    def message_send_b_noembed(self, channel_id, author_name, _, message_text):
-        """Send message B without using embeds"""
-        content = f"{author_name}:\n{message_text}"
-        self.discord_b.send_message(
-            channel_id=channel_id,
-            message_text=content,
-            reply_id=None,
-            reply_channel_id=None,
-            reply_guild_id=None,
-            reply_ping=True,
         )
 
 

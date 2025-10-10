@@ -165,10 +165,12 @@ def build_message(message, config, roles, channels):
         if embed_url and not embed.get("hidden") and embed_url not in content:
             if content:
                 content += "\n"
-            if embed["type"] == "rich":
+            if "main_url" not in embed:
+                content += f"[({clean_type(embed["type"])} attachment)]({embed_url})"
+            elif embed["type"] == "rich":
                 content += f"(rich embed): {embed_url}"
             else:
-                content += f"[({clean_type(embed["type"])} attachment)]({embed_url})"
+                content += f"[({clean_type(embed["type"])} embed)]({embed_url})"
 
     for sticker in message["stickers"]:
         sticker_type = sticker["format_type"]
