@@ -54,6 +54,8 @@ def replace_roles(text, roles_ids):
             if match.group(1) == role["id"]:
                 result.append(f"@{role["name"]}")
                 break
+        else:
+            result.append("@unknown_role")
         last_pos = match.end()
     result.append(text[last_pos:])
     return "".join(result)
@@ -87,6 +89,8 @@ def replace_channels(text, channels_ids):
             if match.group(1) == channel["id"]:
                 result.append(f"#{channel["name"]}")
                 break
+        else:
+            result.append("@unknown_channel")
         last_pos = match.end()
     result.append(text[last_pos:])
     return "".join(result)
