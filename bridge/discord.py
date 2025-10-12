@@ -67,10 +67,10 @@ class Discord():
         return None
 
 
-    def send_message(self, channel_id, message_text, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=True, attachments=None, embeds=None, stickers=None):
+    def send_message(self, channel_id, message_content, reply_id=None, reply_channel_id=None, reply_guild_id=None, reply_ping=True, attachments=None, embeds=None, stickers=None):
         """Send a message in the channel with reply with or without ping"""
         message_dict = {
-            "content": message_text,
+            "content": message_content,
             "tts": "false",
             "flags": 0,
             "nonce": generate_nonce(),
@@ -129,9 +129,14 @@ class Discord():
         return None
 
 
-    def send_update_message(self, channel_id, message_id, message_content):
+    def send_update_message(self, channel_id, message_id, message_content, embeds):
         """Update the message in the channel"""
-        message_data = json.dumps({"content": message_content})
+        message_dict = {
+            "content": message_content,
+        }
+        if embeds:
+            message_dict["embeds"] = embeds
+        message_data = json.dumps(message_dict)
         url = f"/api/v9/channels/{channel_id}/messages/{message_id}"
         try:
             connection = self.get_connection(self.host, 443)

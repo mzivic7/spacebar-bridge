@@ -6,6 +6,7 @@ A bot that serves as message bridge between Discord and Spacebar servers. But ca
 - 2-way message forwardingr
 - Forward full message content: atachments, embeds, stickers, emojis, mentions, polls interactions (non-interactive)
 - Delete messages
+- Edit messages
 - Custom bot status (Discord only)
 
 
@@ -38,7 +39,6 @@ A bot that serves as message bridge between Discord and Spacebar servers. But ca
 `pair_lifetime_days` - how long will each pair be kept in database before its removed, set to `null` to disable cleanup  
 
 ## TODO
-- Edit message
 - Reply messages
 - Reactions
 - Run on multiple guilds

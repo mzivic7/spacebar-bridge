@@ -174,7 +174,32 @@ class Bridge:
                                     logger.warn(f"Channel pair (A): {channel_pair} not initialized")
 
                         elif op == "MESSAGE_UPDATE":
-                            pass
+                            source_channel = data["channel_id"]
+                            target_channel = self.bridges_a[source_channel]
+                            channel_pair = f"pair_{source_channel}_{target_channel}"
+                            if channel_pair in self.bridges_a_txt:
+                                source_message = data["id"]
+                                target_message = self.database_a.get_pair(channel_pair, source_message)
+                                if target_message:
+                                    author_name = get_author_name(data)
+                                    author_pfp = get_author_pfp(data, self.cdn_a)
+                                    message_text = formatter.build_message(
+                                        data,
+                                        self.message_config,
+                                        self.roles,
+                                        self.channels,
+                                    )
+                                    self.message_edit(
+                                        self.discord_b,
+                                        target_channel,
+                                        target_message,
+                                        author_name,
+                                        author_pfp,
+                                        message_text,
+                                    )
+                                    logger.debug(f"EDIT (A): = {source_channel} > {target_channel} = [{author_name}] - ({source_message}) - {message_text}")
+                            else:
+                                logger.warn(f"Channel pair (A): {channel_pair} not initialized")
 
                         elif op == "MESSAGE_DELETE":
                             source_channel = data["channel_id"]
@@ -248,7 +273,32 @@ class Bridge:
                                     logger.warn(f"Channel pair (B): {channel_pair} not initialized")
 
                         elif op == "MESSAGE_UPDATE":
-                            pass
+                            source_channel = data["channel_id"]
+                            target_channel = self.bridges_b[source_channel]
+                            channel_pair = f"pair_{source_channel}_{target_channel}"
+                            if channel_pair in self.bridges_b_txt:
+                                source_message = data["id"]
+                                target_message = self.database_b.get_pair(channel_pair, source_message)
+                                if target_message:
+                                    author_name = get_author_name(data)
+                                    author_pfp = get_author_pfp(data, self.cdn_b)
+                                    message_text = formatter.build_message(
+                                        data,
+                                        self.message_config,
+                                        self.roles,
+                                        self.channels,
+                                    )
+                                    self.message_edit(
+                                        self.discord_a,
+                                        target_channel,
+                                        target_message,
+                                        author_name,
+                                        author_pfp,
+                                        message_text,
+                                    )
+                                    logger.debug(f"EDIT (B): = {source_channel} > {target_channel} = [{author_name}] - ({source_message}) - {message_text}")
+                            else:
+                                logger.warn(f"Channel pair (B): {channel_pair} not initialized")
 
                         elif op == "MESSAGE_DELETE":
                             source_channel = data["channel_id"]
@@ -282,8 +332,29 @@ class Bridge:
         self.run = False
 
 
+    def message_edit(self, discord, channel_id, message_id, author_name, author_pfp, message_text):
+        """Eddit message"""
+        if not message_text:
+            message_text = "*Unknown message content*"
+        embeds = [{
+            "type": "rich",
+            "author": {
+                "name": author_name,
+            },
+            "description": message_text,
+        }]
+        if author_pfp:
+            embeds[0]["author"]["icon_url"] = author_pfp
+        return discord.send_update_message(
+            channel_id=channel_id,
+            message_id=message_id,
+            message_content="",
+            embeds=embeds,
+        )
+
+
     def message_send(self, discord, channel_id, author_name, author_pfp, message_text):
-        """Send message A"""
+        """Send message"""
         if not message_text:
             message_text = "*Unknown message content*"
         embeds = [{
@@ -297,7 +368,7 @@ class Bridge:
             embeds[0]["author"]["icon_url"] = author_pfp
         return discord.send_message(
             channel_id=channel_id,
-            message_text="",
+            message_content="",
             reply_id=None,
             reply_channel_id=None,
             reply_guild_id=None,
