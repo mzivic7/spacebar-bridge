@@ -31,10 +31,14 @@ A bot that serves as message bridge between Discord and Spacebar servers. But ca
 8. `Ctrl+C` to stop bridge.
 9. To set "debug" log level, run `export LOG_LEVEL=DEBUG ` before starting the bridge.
 
+### Database options
+`dir_path` - where will databases be stored  
+`cleanup_days` - interval in days between database cleanups, set to `null` to disable cleanup  
+`pair_lifetime_days` - how long will each pair be kept in database before its removed, set to `null` to disable cleanup  
+
 ## TODO
 - Edit message
 - Delete message
 - Reply messages
 - Reactions
 - Run on multiple guilds
-- use SQL to identify messages

@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 
-from bridge import discord, formatter, gateway
+from bridge import database, discord, formatter, gateway
 
 logger = logging
 logging.basicConfig(
@@ -48,6 +48,17 @@ class Bridge:
             config = json.load(f)
         self.run = True
 
+        print("Initializing database")
+        database_path = os.path.expanduser(config["database"]["dir_path"])
+        cleanup_days = config["database"]["cleanup_days"]
+        pair_lifetime_days = config["database"]["pair_lifetime_days"]
+        if not os.path.exists(database_path):
+            os.makedirs(database_path, exist_ok=True)
+        databse_path_a = os.path.join(database_path, "discord.db")
+        databse_path_b = os.path.join(database_path, "spacebar.db")
+        self.database_a = database.PairStore(databse_path_a, cleanup_days, pair_lifetime_days, name="Discord")
+        self.database_b = database.PairStore(databse_path_b, cleanup_days, pair_lifetime_days, name="Spacebar")
+
         host_a = config["discord"]["host"]
         self.cdn_a = config["discord"]["cdn_host"]
         token_a = config["discord"]["token"]
@@ -67,16 +78,23 @@ class Bridge:
 
         self.channels_a = []
         self.bridges_a = {}
+        self.bridges_a_txt = []
         self.channels_b = []
         self.bridges_b = {}
+        self.bridges_b_txt = []
         for bridge in bridges:
             a = bridge["discord_channel_id"]
             b = bridge["spacebar_channel_id"]
             self.channels_a.append(a)
             self.bridges_a[a] = b
+            self.bridges_a_txt.append(f"pair_{a}_{b}")
+            self.database_a.create_table(f"pair_{a}_{b}")
             self.channels_b.append(b)
             self.bridges_b[b] = a
+            self.bridges_b_txt.append(f"pair_{b}_{a}")
+            self.database_b.create_table(f"pair_{b}_{a}")
 
+        print("Connecting to gateways")
         self.discord_a = discord.Discord(token_a, host_a, self.cdn_a, "Discord")
         self.gateway_a = gateway.Gateway(token_a, host_a, "Discord")
         self.gateway_a.connect()
@@ -110,12 +128,13 @@ class Bridge:
         # )
 
         logger.info("Bridge initialized successfully")
+        print("Bridge initialized successfully")
 
         threading.Thread(target=self.loop_b, daemon=True).start()
         self.loop_a()
 
 
-    def loop_a(self):
+    def loop_a(self):   # DISCORD -> SPACEBAR
         """Loop A"""
         while self.run:
 
@@ -138,13 +157,20 @@ class Bridge:
                                 self.roles,
                                 self.channels,
                             )
-                            self.message_send_b(
+                            target_id = self.message_send(
+                                self.discord_b,
                                 target_channel,
                                 author_name,
                                 author_pfp,
                                 message_text,
                             )
-                            logger.debug(f"CREATE: {source_channel} > {target_channel} = [{author_name}] - ({source_id}) - {message_text}")
+                            if target_id:
+                                logger.debug(f"CREATE (A): = {source_channel} > {target_channel} = [{author_name}] - ({source_id}) - {message_text}")
+                                channel_pair = f"pair_{source_channel}_{target_channel}"
+                                if channel_pair in self.bridges_a_txt:
+                                    self.database_a.add_pair(channel_pair, source_id, target_id)
+                                else:
+                                    logger.warn(f"Channel pair (A): {channel_pair} not initialized")
                         elif op == "MESSAGE_UPDATE":
                             pass
                         elif op == "MESSAGE_DELETE":
@@ -166,7 +192,7 @@ class Bridge:
         self.run = False
 
 
-    def loop_b(self):
+    def loop_b(self):   # SPACEBAR -> DISCORD
         """Loop B"""
         while self.run:
 
@@ -189,13 +215,20 @@ class Bridge:
                                 self.roles,
                                 self.channels,
                             )
-                            self.message_send_a(
+                            target_id = self.message_send(
+                                self.discord_a,
                                 target_channel,
                                 author_name,
                                 author_pfp,
                                 message_text,
                             )
-                            logger.debug(f"CREATE: {source_channel} > {target_channel} = [{author_name}] - ({source_id}) - {message_text}")
+                            if target_id:
+                                logger.debug(f"CREATE (B): {source_channel} > {target_channel} = [{author_name}] - ({source_id}) - {message_text}")
+                                channel_pair = f"pair_{source_channel}_{target_channel}"
+                                if channel_pair in self.bridges_b_txt:
+                                    self.database_b.add_pair(channel_pair, source_id, target_id)
+                                else:
+                                    logger.warn(f"Channel pair (B): {channel_pair} not initialized")
                         elif op == "MESSAGE_UPDATE":
                             pass
                         elif op == "MESSAGE_DELETE":
@@ -217,7 +250,7 @@ class Bridge:
         self.run = False
 
 
-    def message_send_a(self, channel_id, author_name, author_pfp, message_text):
+    def message_send(self, discord, channel_id, author_name, author_pfp, message_text):
         """Send message A"""
         if not message_text:
             message_text = "*Unknown message content*"
@@ -230,31 +263,7 @@ class Bridge:
         }]
         if author_pfp:
             embeds[0]["author"]["icon_url"] = author_pfp
-        self.discord_a.send_message(
-            channel_id=channel_id,
-            message_text="",
-            reply_id=None,
-            reply_channel_id=None,
-            reply_guild_id=None,
-            reply_ping=True,
-            embeds=embeds,
-        )
-
-
-    def message_send_b(self, channel_id, author_name, author_pfp, message_text):
-        """Send message B"""
-        if not message_text:
-            message_text = "*Unknown message content*"
-        embeds = [{
-            "type": "rich",
-            "author": {
-                "name": author_name,
-            },
-            "description": message_text,
-        }]
-        if author_pfp:
-            embeds[0]["author"]["icon_url"] = author_pfp
-        self.discord_b.send_message(
+        return discord.send_message(
             channel_id=channel_id,
             message_text="",
             reply_id=None,

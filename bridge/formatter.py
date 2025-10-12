@@ -168,7 +168,7 @@ def build_message(message, config, roles, channels):
             if "main_url" not in embed:
                 content += f"[({clean_type(embed["type"])} attachment)]({embed_url})"
             elif embed["type"] == "rich":
-                content += f"(rich embed): {embed_url}"
+                content += f"(rich embed):\n{embed_url}"
             else:
                 content += f"[({clean_type(embed["type"])} embed)]({embed_url})"
 

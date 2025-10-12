@@ -119,13 +119,14 @@ class Discord():
             response = connection.getresponse()
         except (socket.gaierror, TimeoutError):
             connection.close()
-            return False
+            return None
         if response.status == 200:
+            message_id = json.loads(response.read())["id"]
             connection.close()
-            return True
+            return message_id
         logger.error(f"({self.name}) Failed to send message. Response code: {response.status}")
         connection.close()
-        return False
+        return None
 
 
     def send_update_message(self, channel_id, message_id, message_content):

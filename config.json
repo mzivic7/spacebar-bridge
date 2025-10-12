@@ -9,6 +9,11 @@
     "cdn_host": "cdn.old.server.spacebar.chat",
     "token": "YOUR_SPACEBAR_BOT_TOKEN_HERE"
   },
+  "database": {
+      "dir_path": "./db/",
+      "cleanup_days": 3,
+      "pair_lifetime_days": 30
+  },
   "custom_status": null,
   "custom_status_emoji": null,
   "format": {
