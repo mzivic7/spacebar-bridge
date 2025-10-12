@@ -145,10 +145,11 @@ class Bridge:
                     data = new_message["d"]
                     if data["channel_id"] in self.channels_a and data.get("user_id") != self.my_id_a:
                         op = new_message["op"]
+
                         if op == "MESSAGE_CREATE":
                             source_channel = data["channel_id"]
                             target_channel = self.bridges_a[source_channel]
-                            source_id = data["id"]
+                            source_message = data["id"]
                             author_name = get_author_name(data)
                             author_pfp = get_author_pfp(data, self.cdn_a)
                             message_text = formatter.build_message(
@@ -157,26 +158,41 @@ class Bridge:
                                 self.roles,
                                 self.channels,
                             )
-                            target_id = self.message_send(
+                            target_message = self.message_send(
                                 self.discord_b,
                                 target_channel,
                                 author_name,
                                 author_pfp,
                                 message_text,
                             )
-                            if target_id:
-                                logger.debug(f"CREATE (A): = {source_channel} > {target_channel} = [{author_name}] - ({source_id}) - {message_text}")
+                            if target_message:
+                                logger.debug(f"CREATE (A): = {source_channel} > {target_channel} = [{author_name}] - ({source_message}) - {message_text}")
                                 channel_pair = f"pair_{source_channel}_{target_channel}"
                                 if channel_pair in self.bridges_a_txt:
-                                    self.database_a.add_pair(channel_pair, source_id, target_id)
+                                    self.database_a.add_pair(channel_pair, source_message, target_message)
                                 else:
                                     logger.warn(f"Channel pair (A): {channel_pair} not initialized")
+
                         elif op == "MESSAGE_UPDATE":
                             pass
+
                         elif op == "MESSAGE_DELETE":
-                            pass
+                            source_channel = data["channel_id"]
+                            target_channel = self.bridges_a[source_channel]
+                            channel_pair = f"pair_{source_channel}_{target_channel}"
+                            if channel_pair in self.bridges_a_txt:
+                                source_message = data["id"]
+                                target_message = self.database_a.get_pair(channel_pair, source_message)
+                                if target_message:
+                                    self.discord_b.send_delete_message(target_channel, target_message)
+                                    logger.debug(f"DELETE (A): = {source_channel} > {target_channel} = ({source_message})")
+                                    self.database_a.delete_pair(channel_pair, source_message)
+                            else:
+                                logger.warn(f"Channel pair (A): {channel_pair} not initialized")
+
                         elif op == "MESSAGE_REACTION_ADD":
                             pass
+
                         elif op == "MESSAGE_REACTION_REMOVE":
                             pass
 
@@ -203,10 +219,11 @@ class Bridge:
                     data = new_message["d"]
                     if data["channel_id"] in self.channels_b and data.get("user_id") != self.my_id_b:
                         op = new_message["op"]
+
                         if op == "MESSAGE_CREATE":
                             source_channel = data["channel_id"]
                             target_channel = self.bridges_b[source_channel]
-                            source_id = data["id"]
+                            source_message = data["id"]
                             author_name = get_author_name(data)
                             author_pfp = get_author_pfp(data, self.cdn_b)
                             message_text = formatter.build_message(
@@ -215,26 +232,41 @@ class Bridge:
                                 self.roles,
                                 self.channels,
                             )
-                            target_id = self.message_send(
+                            target_message = self.message_send(
                                 self.discord_a,
                                 target_channel,
                                 author_name,
                                 author_pfp,
                                 message_text,
                             )
-                            if target_id:
-                                logger.debug(f"CREATE (B): {source_channel} > {target_channel} = [{author_name}] - ({source_id}) - {message_text}")
+                            if target_message:
+                                logger.debug(f"CREATE (B): {source_channel} > {target_channel} = [{author_name}] - ({source_message}) - {message_text}")
                                 channel_pair = f"pair_{source_channel}_{target_channel}"
                                 if channel_pair in self.bridges_b_txt:
-                                    self.database_b.add_pair(channel_pair, source_id, target_id)
+                                    self.database_b.add_pair(channel_pair, source_message, target_message)
                                 else:
                                     logger.warn(f"Channel pair (B): {channel_pair} not initialized")
+
                         elif op == "MESSAGE_UPDATE":
                             pass
+
                         elif op == "MESSAGE_DELETE":
-                            pass
+                            source_channel = data["channel_id"]
+                            target_channel = self.bridges_b[source_channel]
+                            channel_pair = f"pair_{source_channel}_{target_channel}"
+                            if channel_pair in self.bridges_b_txt:
+                                source_message = data["id"]
+                                target_message = self.database_b.get_pair(channel_pair, source_message)
+                                if target_message:
+                                    self.discord_a.send_delete_message(target_channel, target_message)
+                                    logger.debug(f"DELETE (B): = {source_channel} > {target_channel} = ({source_message})")
+                                    self.database_b.delete_pair(channel_pair, source_message)
+                            else:
+                                logger.warn(f"Channel pair (B): {channel_pair} not initialized")
+
                         elif op == "MESSAGE_REACTION_ADD":
                             pass
+
                         elif op == "MESSAGE_REACTION_REMOVE":
                             pass
 

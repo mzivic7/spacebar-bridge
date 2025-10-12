@@ -62,7 +62,6 @@ class PairStore:
 
     def add_pair(self, channel_pair, msg_id_1, msg_id_2):
         """Add a pair of snowflakes"""
-        print(channel_pair, msg_id_1, msg_id_2)
         with self.conn:
             self.conn.execute(f"INSERT OR REPLACE INTO {channel_pair} (id1, id2) VALUES (?, ?)", (msg_id_1, msg_id_2))
 
@@ -71,7 +70,7 @@ class PairStore:
         """Get pair if msg_id from first id in a pair, else none"""
         row = self.conn.execute(f"SELECT id1, id2 FROM {channel_pair} WHERE id1 = ? LIMIT 1", (msg_id,)).fetchone()
         if row:
-            return row
+            return row[1]
         return None
 
 
