@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 
-from bridge import database, discord, formatter, gateway
+from bridge import database, database_postgres, discord, formatter, gateway
 
 logger = logging
 logging.basicConfig(
@@ -48,16 +48,10 @@ class Bridge:
             config = json.load(f)
         self.run = True
 
-        print("Initializing database")
-        database_path = os.path.expanduser(config["database"]["dir_path"])
-        cleanup_days = config["database"]["cleanup_days"]
-        pair_lifetime_days = config["database"]["pair_lifetime_days"]
-        if not os.path.exists(database_path):
-            os.makedirs(database_path, exist_ok=True)
-        databse_path_a = os.path.join(database_path, "discord.db")
-        databse_path_b = os.path.join(database_path, "spacebar.db")
-        self.database_a = database.PairStore(databse_path_a, cleanup_days, pair_lifetime_days, name="Discord")
-        self.database_b = database.PairStore(databse_path_b, cleanup_days, pair_lifetime_days, name="Spacebar")
+        if config["database"]["postgresql_host"]:
+            self.init_postgresql(config)
+        else:
+            self.init_sqlite(config)
 
         host_a = config["discord"]["host"]
         self.cdn_a = config["discord"]["cdn_host"]
@@ -134,6 +128,32 @@ class Bridge:
         self.loop_a()
 
 
+    def init_sqlite(self, config):
+        """Initialize SQLite database"""
+        print("Initializing database")
+        database_path = os.path.expanduser(config["database"]["dir_path"])
+        cleanup_days = config["database"]["cleanup_days"]
+        pair_lifetime_days = config["database"]["pair_lifetime_days"]
+        if not os.path.exists(database_path):
+            os.makedirs(database_path, exist_ok=True)
+        databse_path_a = os.path.join(database_path, "discord.db")
+        databse_path_b = os.path.join(database_path, "spacebar.db")
+        self.database_a = database.PairStore(databse_path_a, cleanup_days, pair_lifetime_days, name="Discord")
+        self.database_b = database.PairStore(databse_path_b, cleanup_days, pair_lifetime_days, name="Spacebar")
+
+
+    def init_postgresql(self, config):
+        """"Connect to PostgreSQL database"""
+        print("Connecting to postgres databse")
+        host = config["database"]["postgresql_host"]
+        user = config["database"]["postgresql_user"]
+        password = config["database"]["postgresql_password"]
+        cleanup_days = config["database"]["cleanup_days"]
+        pair_lifetime_days = config["database"]["pair_lifetime_days"]
+        self.database_a = database_postgres.PairStore(host, user, password, "bridge_discord_msgs", cleanup_days, pair_lifetime_days, name="Discord")
+        self.database_b = database_postgres.PairStore(host, user, password, "bridge_spacebar_msgs", cleanup_days, pair_lifetime_days, name="Spacebar")
+
+
     def loop_a(self):   # DISCORD -> SPACEBAR
         """Loop A"""
         while self.run:
@@ -147,24 +167,57 @@ class Bridge:
                         op = new_message["op"]
 
                         if op == "MESSAGE_CREATE":
+                            # build message
                             source_channel = data["channel_id"]
                             target_channel = self.bridges_a[source_channel]
                             source_message = data["id"]
                             author_name = get_author_name(data)
                             author_pfp = get_author_pfp(data, self.cdn_a)
+                            if data["referenced_message"]:
+                                source_reference_id = data["referenced_message"]["id"]
+                                if data["referenced_message"]["user_id"] == self.my_id_a:
+                                    channel_pair = f"pair_{target_channel}_{source_channel}"
+                                    target_reference_id = self.database_b.get_source(channel_pair, source_reference_id)
+                                else:
+                                    channel_pair = f"pair_{source_channel}_{target_channel}"
+                                    target_reference_id = target_message = self.database_a.get_target(channel_pair, source_reference_id)
+                                for mention in data["referenced_message"]["mentions"]:
+                                    if mention["id"] == self.my_id_a:
+                                        reply_ping = True
+                                        break
+                                else:
+                                    reply_ping = False
+                            else:
+                                target_reference_id = None
+                                reply_ping = True
                             message_text = formatter.build_message(
                                 data,
                                 self.message_config,
                                 self.roles,
                                 self.channels,
                             )
-                            target_message = self.message_send(
-                                self.discord_b,
-                                target_channel,
-                                author_name,
-                                author_pfp,
-                                message_text,
+                            if not message_text:
+                                message_text = "*Unknown message content*"
+                            embeds = [{
+                                "type": "rich",
+                                "author": {
+                                    "name": author_name,
+                                },
+                                "description": message_text,
+                            }]
+                            if author_pfp:
+                                embeds[0]["author"]["icon_url"] = author_pfp
+                            # send message
+                            target_message = self.discord_b.send_message(
+                                channel_id=target_channel,
+                                message_content="",
+                                reply_id=target_reference_id,
+                                reply_channel_id=target_channel,
+                                reply_guild_id=self.guild_id_b,
+                                reply_ping=reply_ping,
+                                embeds=embeds,
                             )
+                            # add to db
                             if target_message:
                                 logger.debug(f"CREATE (A): = {source_channel} > {target_channel} = [{author_name}] - ({source_message}) - {message_text}")
                                 channel_pair = f"pair_{source_channel}_{target_channel}"
@@ -179,7 +232,7 @@ class Bridge:
                             channel_pair = f"pair_{source_channel}_{target_channel}"
                             if channel_pair in self.bridges_a_txt:
                                 source_message = data["id"]
-                                target_message = self.database_a.get_pair(channel_pair, source_message)
+                                target_message = self.database_a.get_target(channel_pair, source_message)
                                 if target_message:
                                     author_name = get_author_name(data)
                                     author_pfp = get_author_pfp(data, self.cdn_a)
@@ -189,13 +242,22 @@ class Bridge:
                                         self.roles,
                                         self.channels,
                                     )
-                                    self.message_edit(
-                                        self.discord_b,
-                                        target_channel,
-                                        target_message,
-                                        author_name,
-                                        author_pfp,
-                                        message_text,
+                                    if not message_text:
+                                        message_text = "*Unknown message content*"
+                                    embeds = [{
+                                        "type": "rich",
+                                        "author": {
+                                            "name": author_name,
+                                        },
+                                        "description": message_text,
+                                    }]
+                                    if author_pfp:
+                                        embeds[0]["author"]["icon_url"] = author_pfp
+                                    self.discord_b.send_update_message(
+                                        channel_id=target_channel,
+                                        message_id=target_message,
+                                        message_content="",
+                                        embeds=embeds,
                                     )
                                     logger.debug(f"EDIT (A): = {source_channel} > {target_channel} = [{author_name}] - ({source_message}) - {message_text}")
                             else:
@@ -207,7 +269,7 @@ class Bridge:
                             channel_pair = f"pair_{source_channel}_{target_channel}"
                             if channel_pair in self.bridges_a_txt:
                                 source_message = data["id"]
-                                target_message = self.database_a.get_pair(channel_pair, source_message)
+                                target_message = self.database_a.get_target(channel_pair, source_message)
                                 if target_message:
                                     self.discord_b.send_delete_message(target_channel, target_message)
                                     logger.debug(f"DELETE (A): = {source_channel} > {target_channel} = ({source_message})")
@@ -246,26 +308,60 @@ class Bridge:
                         op = new_message["op"]
 
                         if op == "MESSAGE_CREATE":
+                            # build message
                             source_channel = data["channel_id"]
                             target_channel = self.bridges_b[source_channel]
                             source_message = data["id"]
                             author_name = get_author_name(data)
                             author_pfp = get_author_pfp(data, self.cdn_b)
+                            if data["referenced_message"]:
+                                source_reference_id = data["referenced_message"]["id"]
+                                if data["referenced_message"]["user_id"] == self.my_id_b:
+                                    channel_pair = f"pair_{target_channel}_{source_channel}"
+                                    target_reference_id = self.database_a.get_source(channel_pair, source_reference_id)
+                                else:
+                                    channel_pair = f"pair_{source_channel}_{target_channel}"
+                                    target_reference_id = target_message = self.database_b.get_target(channel_pair, source_reference_id)
+                                for mention in data["referenced_message"]["mentions"]:
+                                    if mention["id"] == self.my_id_b:
+                                        reply_ping = True
+                                        break
+                                else:
+                                    reply_ping = False
+                            else:
+                                target_reference_id = None
+                                reply_ping = True
+                            # build message
                             message_text = formatter.build_message(
                                 data,
                                 self.message_config,
                                 self.roles,
                                 self.channels,
                             )
-                            target_message = self.message_send(
-                                self.discord_a,
-                                target_channel,
-                                author_name,
-                                author_pfp,
-                                message_text,
+                            if not message_text:
+                                message_text = "*Unknown message content*"
+                            embeds = [{
+                                "type": "rich",
+                                "author": {
+                                    "name": author_name,
+                                },
+                                "description": message_text,
+                            }]
+                            if author_pfp:
+                                embeds[0]["author"]["icon_url"] = author_pfp
+                            # send message
+                            target_message = self.discord_a.send_message(
+                                channel_id=target_channel,
+                                message_content="",
+                                reply_id=target_reference_id,
+                                reply_channel_id=target_channel,
+                                reply_guild_id=self.guild_id_a,
+                                reply_ping=reply_ping,
+                                embeds=embeds,
                             )
+                            # add to db
                             if target_message:
-                                logger.debug(f"CREATE (B): {source_channel} > {target_channel} = [{author_name}] - ({source_message}) - {message_text}")
+                                logger.debug(f"CREATE (B): {source_channel}-{source_message} > {target_channel}={target_message} = [{author_name}] - {message_text}")
                                 channel_pair = f"pair_{source_channel}_{target_channel}"
                                 if channel_pair in self.bridges_b_txt:
                                     self.database_b.add_pair(channel_pair, source_message, target_message)
@@ -278,7 +374,7 @@ class Bridge:
                             channel_pair = f"pair_{source_channel}_{target_channel}"
                             if channel_pair in self.bridges_b_txt:
                                 source_message = data["id"]
-                                target_message = self.database_b.get_pair(channel_pair, source_message)
+                                target_message = self.database_b.get_target(channel_pair, source_message)
                                 if target_message:
                                     author_name = get_author_name(data)
                                     author_pfp = get_author_pfp(data, self.cdn_b)
@@ -288,15 +384,24 @@ class Bridge:
                                         self.roles,
                                         self.channels,
                                     )
-                                    self.message_edit(
-                                        self.discord_a,
-                                        target_channel,
-                                        target_message,
-                                        author_name,
-                                        author_pfp,
-                                        message_text,
+                                    if not message_text:
+                                        message_text = "*Unknown message content*"
+                                    embeds = [{
+                                        "type": "rich",
+                                        "author": {
+                                            "name": author_name,
+                                        },
+                                        "description": message_text,
+                                    }]
+                                    if author_pfp:
+                                        embeds[0]["author"]["icon_url"] = author_pfp
+                                    self.discord_a.send_update_message(
+                                        channel_id=target_channel,
+                                        message_id=target_message,
+                                        message_content="",
+                                        embeds=embeds,
                                     )
-                                    logger.debug(f"EDIT (B): = {source_channel} > {target_channel} = [{author_name}] - ({source_message}) - {message_text}")
+                                    logger.debug(f"EDIT (B): = {source_channel}-{source_message} > {target_channel}={target_message} = [{author_name}] - {message_text}")
                             else:
                                 logger.warn(f"Channel pair (B): {channel_pair} not initialized")
 
@@ -306,7 +411,7 @@ class Bridge:
                             channel_pair = f"pair_{source_channel}_{target_channel}"
                             if channel_pair in self.bridges_b_txt:
                                 source_message = data["id"]
-                                target_message = self.database_b.get_pair(channel_pair, source_message)
+                                target_message = self.database_b.get_target(channel_pair, source_message)
                                 if target_message:
                                     self.discord_a.send_delete_message(target_channel, target_message)
                                     logger.debug(f"DELETE (B): = {source_channel} > {target_channel} = ({source_message})")
@@ -331,50 +436,6 @@ class Bridge:
             time.sleep(0.1)   # some reasonable delay
         self.run = False
 
-
-    def message_edit(self, discord, channel_id, message_id, author_name, author_pfp, message_text):
-        """Eddit message"""
-        if not message_text:
-            message_text = "*Unknown message content*"
-        embeds = [{
-            "type": "rich",
-            "author": {
-                "name": author_name,
-            },
-            "description": message_text,
-        }]
-        if author_pfp:
-            embeds[0]["author"]["icon_url"] = author_pfp
-        return discord.send_update_message(
-            channel_id=channel_id,
-            message_id=message_id,
-            message_content="",
-            embeds=embeds,
-        )
-
-
-    def message_send(self, discord, channel_id, author_name, author_pfp, message_text):
-        """Send message"""
-        if not message_text:
-            message_text = "*Unknown message content*"
-        embeds = [{
-            "type": "rich",
-            "author": {
-                "name": author_name,
-            },
-            "description": message_text,
-        }]
-        if author_pfp:
-            embeds[0]["author"]["icon_url"] = author_pfp
-        return discord.send_message(
-            channel_id=channel_id,
-            message_content="",
-            reply_id=None,
-            reply_channel_id=None,
-            reply_guild_id=None,
-            reply_ping=True,
-            embeds=embeds,
-        )
 
 
 def sigint_handler(_signum, _frame):

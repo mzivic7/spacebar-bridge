@@ -21,12 +21,12 @@
     "format_one_reaction": "╰──⤙ %reactions",
     "reactions_separator": "; "
   },
-  "discord_guild_id": "DISCORD_GUILD_ID",
-  "spacebar_guild_id": "SPACEBAR_GUILD_ID",
+  "discord_guild_id": "1331398996081512518",
+  "spacebar_guild_id": "1401268596066087894",
   "bridges": [
     {
-      "discord_channel_id": "DISCORD_CHANNEL_ID",
-      "spacebar_channel_id": "SPACEBAR_CHANNEL_ID"
+      "discord_channel_id": "1362263008398803115",
+      "spacebar_channel_id": "1401268596091253721"
     }
   ]
 }

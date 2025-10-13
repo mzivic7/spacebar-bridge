@@ -46,38 +46,45 @@ class PairStore:
         logger.info(f"{self.name} Database initializes successfully")
 
 
-    def create_table(self, channel_pair: str):
+    def create_table(self, channel_pair):
         """Create table for channel if it doesnt exist"""
         with self.conn:
             self.conn.execute(f"""
                 CREATE TABLE IF NOT EXISTS {channel_pair} (
-                    id1 TEXT PRIMARY KEY,
-                    id2 TEXT NOT NULL
+                    source TEXT PRIMARY KEY,
+                    target TEXT NOT NULL
                 )
             """)
             self.conn.execute("INSERT OR IGNORE INTO channels (name) VALUES (?)", (channel_pair,))
         return channel_pair
 
 
-
-    def add_pair(self, channel_pair, msg_id_1, msg_id_2):
-        """Add a pair of snowflakes"""
+    def add_pair(self, channel_pair, source, target):
+        """Add a pair of source and target message snowflakes"""
         with self.conn:
-            self.conn.execute(f"INSERT OR REPLACE INTO {channel_pair} (id1, id2) VALUES (?, ?)", (msg_id_1, msg_id_2))
+            self.conn.execute(f"INSERT OR REPLACE INTO {channel_pair} (source, target) VALUES (?, ?)", (source, target))
 
 
-    def get_pair(self, channel_pair, msg_id):
-        """Get pair if msg_id from first id in a pair, else none"""
-        row = self.conn.execute(f"SELECT id1, id2 FROM {channel_pair} WHERE id1 = ? LIMIT 1", (msg_id,)).fetchone()
+    def get_target(self, channel_pair, source):
+        """Get target id from source in a pair, if not found return none"""
+        row = self.conn.execute(f"SELECT target FROM {channel_pair} WHERE source = ? LIMIT 1", (source,)).fetchone()
         if row:
-            return row[1]
+            return row[0]
         return None
 
 
-    def delete_pair(self, channel_pair, msg_id):
-        """Delete a pair by any id"""
+    def get_source(self, channel_pair, target):
+        """Get source id from target in a pair, if not found return none"""
+        row = self.conn.execute(f"SELECT source FROM {channel_pair} WHERE target = ? LIMIT 1", (target,)).fetchone()
+        if row:
+            return row[0]
+        return None
+
+
+    def delete_pair(self, channel_pair, source):
+        """Delete a pair by source"""
         with self.conn:
-            self.conn.execute(f"DELETE FROM {channel_pair} WHERE id1 = ?", (msg_id,))
+            self.conn.execute(f"DELETE FROM {channel_pair} WHERE source = ?", (source,))
 
 
     def cleanup_old_pairs(self):
@@ -88,12 +95,12 @@ class PairStore:
 
         for (channel_pair,) in self.cleanup_conn.execute("SELECT name FROM channels"):
             old_pairs = []
-            for (id1,) in self.cleanup_conn.execute(f"SELECT id1 FROM {channel_pair}"):
-                if snowflake_to_timestamp(id1) < cutoff:
-                    old_pairs.append((id1,))
+            for (id_1,) in self.cleanup_conn.execute(f"SELECT source FROM {channel_pair}"):
+                if snowflake_to_timestamp(id_1) < cutoff:
+                    old_pairs.append((id_1,))
             if old_pairs:
                 with self.cleanup_conn:
-                    self.cleanup_conn.executemany(f"DELETE FROM {channel_pair} WHERE id1=?", old_pairs)
+                    self.cleanup_conn.executemany(f"DELETE FROM {channel_pair} WHERE source=?", old_pairs)
                 logger.debug(f"({self.name}) Cleanup: {channel_pair}: removed {len(old_pairs)} old pairs")
                 deleted += len(old_pairs)
         if not deleted:

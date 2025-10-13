@@ -7,7 +7,9 @@ A bot that serves as message bridge between Discord and Spacebar servers. But ca
 - Forward full message content: atachments, embeds, stickers, emojis, mentions, polls interactions (non-interactive)
 - Delete messages
 - Edit messages
+- Reply to standard ad bridged messages
 - Custom bot status (Discord only)
+- PostgreSQL and SQLite
 
 
 ## Setup
@@ -34,11 +36,12 @@ A bot that serves as message bridge between Discord and Spacebar servers. But ca
 9. To set "debug" log level, run `export LOG_LEVEL=DEBUG ` before starting the bridge.
 
 ### Database options
-`dir_path` - where will databases be stored  
+`dir_path` - where will SQLite databases be stored  
+`postgresql_host` - postgres host, set to `null` to use SQLite instead  
+`postgresql_user` - postgres username (user must have permission to create databses)  
+`postgresql_password` - postgres password  
 `cleanup_days` - interval in days between database cleanups, set to `null` to disable cleanup  
 `pair_lifetime_days` - how long will each pair be kept in database before its removed, set to `null` to disable cleanup  
 
 ## TODO
-- Reply messages
 - Reactions
-- Run on multiple guilds
