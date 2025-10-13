@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 
-from bridge import database, database_postgres, discord, formatter, gateway
+from bridge import discord, formatter, gateway
 
 logger = logging
 logging.basicConfig(
@@ -131,6 +131,7 @@ class Bridge:
     def init_sqlite(self, config):
         """Initialize SQLite database"""
         print("Initializing database")
+        from bridge import database
         database_path = os.path.expanduser(config["database"]["dir_path"])
         cleanup_days = config["database"]["cleanup_days"]
         pair_lifetime_days = config["database"]["pair_lifetime_days"]
@@ -145,6 +146,7 @@ class Bridge:
     def init_postgresql(self, config):
         """"Connect to PostgreSQL database"""
         print("Connecting to postgres databse")
+        from bridge import database_postgres
         host = config["database"]["postgresql_host"]
         user = config["database"]["postgresql_user"]
         password = config["database"]["postgresql_password"]
