@@ -11,6 +11,9 @@
   },
   "database": {
       "dir_path": "./db/",
+      "postgresql_host": null,
+      "postgresql_user": "user",
+      "postgresql_password": "password",
       "cleanup_days": 3,
       "pair_lifetime_days": 30
   },
